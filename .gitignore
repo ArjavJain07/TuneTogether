@@ -1,0 +1,21 @@
+# Backend (Maven / Java)
+backend/target/
+backend/data/
+*.class
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+
+# Leftover artifacts from scaffolding
+backend.zip
+spring-meta.json
