@@ -812,8 +812,14 @@ function stopVisualizer() {
 let partyTickInterval = null;
 
 function connectPartySocket(roomCode, participantId) {
+    // Native WebSocket directly (brokerURL), not SockJS - every browser this app
+    // targets supports WebSocket natively, and Spring's STOMP endpoint exposes a
+    // raw WS path at "<endpoint>/websocket" even with withSockJS() registered
+    // server-side, so no backend change is needed to skip SockJS's HTTP-polling
+    // negotiation layer here.
+    const brokerUrl = CONFIG.WS_URL.replace(/^http/, 'ws') + '/websocket';
     const client = new StompJs.Client({
-        webSocketFactory: () => new SockJS(CONFIG.WS_URL),
+        brokerURL: brokerUrl,
         connectHeaders: {
             Authorization: 'Bearer ' + AUTH.accessToken,
             'X-Room-Code': roomCode,
@@ -1551,6 +1557,17 @@ async function addTrackToPlaylist(playlistId, track) {
 }
 
 // ==================== UTILITY FUNCTIONS ====================
+// showToast() is called throughout this file (handleLikeTrack, addToPartyQueue,
+// addTrackToPlaylist, createPlaylist, ...) but was never actually defined as a
+// standalone function in the original app - only AUTH.showToast existed, so
+// every one of those call sites threw "showToast is not defined" at runtime.
+// Delegating to the existing AUTH implementation fixes all of them at once.
+function showToast(message, type) {
+    if (typeof AUTH !== 'undefined' && AUTH.showToast) {
+        AUTH.showToast(message, type);
+    }
+}
+
 function formatDuration(ms) {
     const seconds = Math.floor(ms / 1000);
     const mins = Math.floor(seconds / 60);

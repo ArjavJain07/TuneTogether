@@ -1,10 +1,16 @@
 /**
- * Service Worker for TuneTogether
- * Provides offline support and faster loading
- * Made by OGARSH
+ * Service Worker for TuneTogether - offline support and faster loading.
+ *
+ * The original version cached everything cache-first with a CACHE_NAME that
+ * never changed, so once a page was cached, every subsequent deploy (including
+ * this Java-backend rewrite) kept getting served the *first-ever* cached copy
+ * indefinitely - no code change, including this file's own edits, ever reached
+ * a returning browser without a manual "clear site data". Navigation requests
+ * (the HTML page itself) now go network-first with a cache fallback for
+ * offline use; static assets stay cache-first since they're already
+ * cache-busted via the ?v=N query string in index.html's script tags.
  */
-
-const CACHE_NAME = 'tunetogether-v1';
+const CACHE_NAME = 'tunetogether-v2';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -16,43 +22,38 @@ const urlsToCache = [
     'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap'
 ];
 
-// Install event - cache resources
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => {
-                console.log('Opened cache');
-                return cache.addAll(urlsToCache);
-            })
+            .then((cache) => cache.addAll(urlsToCache))
+            .then(() => self.skipWaiting())
     );
 });
 
-// Fetch event - serve from cache when possible
 self.addEventListener('fetch', (event) => {
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match(event.request))
+        );
+        return;
+    }
+
     event.respondWith(
-        caches.match(event.request)
-            .then((response) => {
-                // Cache hit - return response
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request);
-            })
+        caches.match(event.request).then((response) => response || fetch(event.request))
     );
 });
 
-// Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    const cacheWhitelist = [CACHE_NAME];
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheWhitelist.indexOf(cacheName) === -1) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
+        Promise.all([
+            caches.keys().then((cacheNames) =>
+                Promise.all(
+                    cacheNames
+                        .filter((cacheName) => cacheName !== CACHE_NAME)
+                        .map((cacheName) => caches.delete(cacheName))
+                )
+            ),
+            self.clients.claim()
+        ])
     );
 });

@@ -7,6 +7,9 @@
 
 const CONFIG = {
     // The Java backend (Spring Boot). REST + WebSocket/STOMP both live here.
+    // WS_URL is the STOMP endpoint's base (app.js derives the actual ws://
+    // or wss:// URL from it - it stays in sync with BACKEND_URL's protocol
+    // automatically, so switching to https in production also switches this).
     BACKEND_URL: 'http://localhost:8081',
     WS_URL: 'http://localhost:8081/ws',
 

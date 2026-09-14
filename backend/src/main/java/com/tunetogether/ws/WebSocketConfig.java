@@ -41,7 +41,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(allowedOriginPatterns)
-                .withSockJS();
+                .withSockJS()
+                // SockJS defaults to a sticky-session cookie (for load-balanced
+                // deployments), which makes its XHR-streaming/polling fallback
+                // transports send credentialed (withCredentials: true) requests.
+                // This app has no cookies anywhere (JWT bearer auth only) and CORS
+                // is deliberately non-credentialed to match (see SecurityConfig) -
+                // a credentialed cross-origin request without
+                // Access-Control-Allow-Credentials gets silently blocked by the
+                // browser. Disabling the cookie removes the need for it.
+                .setSessionCookieNeeded(false);
     }
 
     @Override
