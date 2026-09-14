@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuneTogether - Listen Together, Anywhere</title>
+    <link rel="icon" type="image/png" href="imgs/logo.png">
+    <meta name="description" content="TuneTogether - Listen to music together with friends in real-time. Create party rooms, share music, and vibe together.">
+    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Animated Background Particles -->
+    <div class="bg-particles" id="bg-particles"></div>
+
+    <!-- ==================== LOGIN SCREEN ==================== -->
+    <div class="login-screen" id="login-screen">
+        <div class="login-container">
+            <div class="login-visual">
+                <div class="login-orb login-orb-1"></div>
+                <div class="login-orb login-orb-2"></div>
+                <div class="login-orb login-orb-3"></div>
+            </div>
+            <div class="login-card">
+                <div class="login-logo">
+                    <img src="imgs/logo.png" alt="TuneTogether" class="login-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="login-logo-fallback" style="display:none;">🎵</div>
+                </div>
+                <h1 class="login-title">TuneTogether</h1>
+                <p class="login-subtitle">Listen Together, Anywhere</p>
+
+                <!-- Login Options -->
+                <div class="login-options" id="login-options">
+                    <button class="login-btn login-btn-google" id="google-login-btn">
+                        <svg class="google-icon" viewBox="0 0 24 24" width="22" height="22">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        <span>Continue with Google</span>
+                    </button>
+
+                    <div class="login-divider">
+                        <span>or</span>
+                    </div>
+
+                    <button class="login-btn login-btn-guest" id="guest-login-btn">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                        <span>Continue as Guest</span>
+                    </button>
+                </div>
+
+                <p class="login-footer-text">By continuing, you agree to vibe responsibly 🎶</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APP ==================== -->
+    <div class="app-wrapper" id="app-wrapper" style="display: none;">
+        <!-- Top Bar -->
+        <header class="topbar" id="topbar">
+            <div class="topbar-left">
+                <img src="imgs/logo.png" alt="TuneTogether" class="topbar-logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                <span class="topbar-logo-fallback" style="display: none;">🎵</span>
+                <h1 class="topbar-title">TuneTogether</h1>
+            </div>
+            <nav class="topbar-nav" id="topbar-nav">
+                <button class="tab-btn active" data-view="music" id="tab-music">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    <span>Music</span>
+                </button>
+                <button class="tab-btn" data-view="party" id="tab-party">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Party</span>
+                </button>
+                <button class="tab-btn" data-view="playlists" id="tab-playlists">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <span>Library</span>
+                </button>
+            </nav>
+            <div class="topbar-right">
+                <div class="user-profile" id="user-profile">
+                    <img src="" alt="" class="user-avatar" id="user-avatar">
+                    <span class="user-name" id="user-name"></span>
+                    <button class="logout-btn" id="logout-btn" title="Sign Out">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- ==================== MUSIC VIEW ==================== -->
+            <div class="view active" id="music-view">
+                <div class="music-layout">
+                    <!-- Search & Results Column -->
+                    <div class="search-column">
+                        <div class="search-section">
+                            <h2 class="section-title">Discover Music</h2>
+                            <div class="search-container" id="search-container">
+                                <svg class="search-icon-left" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="search-input" id="search-input" placeholder="Search songs, artists, albums..." spellcheck="false" autocomplete="off">
+                                <button class="search-btn" id="search-btn">
+                                    Search
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="search-results" id="search-results">
+                            <div class="results-placeholder">
+                                <div class="placeholder-artwork">
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                                </div>
+                                <p class="placeholder-title">Find your next favorite song</p>
+                                <p class="placeholder-subtitle">Search by song name, artist, or album</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== PARTY VIEW ==================== -->
+            <div class="view" id="party-view">
+                <div class="party-container">
+                    <div class="party-hero">
+                        <div class="party-hero-glow"></div>
+                        <h2 class="party-title">Party Mode</h2>
+                        <p class="party-subtitle">Listen together with friends in real-time</p>
+                    </div>
+
+                    <!-- Room Creation/Join -->
+                    <div class="room-section" id="room-section">
+                        <div class="room-cards">
+                            <div class="room-card room-card-create">
+                                <div class="room-card-icon">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                                </div>
+                                <h3>Create Room</h3>
+                                <p>Start a listening party and invite friends</p>
+                                <button class="room-action-btn" id="create-room-btn">Create Party</button>
+                            </div>
+                            <div class="room-card room-card-join">
+                                <div class="room-card-icon">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                                </div>
+                                <h3>Join Room</h3>
+                                <p>Enter a room code to join a party</p>
+                                <div class="join-input-group">
+                                    <input type="text" class="room-code-input" id="room-code-input" placeholder="ENTER CODE" maxlength="6">
+                                    <button class="room-action-btn" id="join-room-btn">Join</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Party Room -->
+                    <div class="party-room" id="party-room" style="display: none;">
+                        <div class="room-info-bar">
+                            <div class="room-code-display">
+                                <span class="room-code-label">Room</span>
+                                <span class="room-code" id="room-code">XXXX</span>
+                                <button class="copy-btn" id="copy-code-btn" title="Copy room code">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                </button>
+                            </div>
+                            <div class="room-info-actions">
+                                <span class="room-status-badge" id="room-status-badge">
+                                    <span class="status-dot"></span>
+                                    Live
+                                </span>
+                                <button class="leave-room-btn" id="leave-room-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                    Leave
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="party-grid">
+                            <div class="party-sidebar">
+                                <div class="party-panel participants-panel">
+                                    <h3 class="panel-title">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                        Listeners <span class="badge" id="participant-count">1</span>
+                                    </h3>
+                                    <div class="participants-list" id="participants-list"></div>
+                                </div>
+
+                                <div class="party-panel queue-panel">
+                                    <h3 class="panel-title">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                                        Queue
+                                    </h3>
+                                    <div class="queue-list" id="party-queue-list">
+                                        <p class="queue-empty">No songs in queue yet</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="party-main">
+                                <div class="party-panel chat-panel">
+                                    <h3 class="panel-title">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                        Chat
+                                    </h3>
+                                    <div class="chat-messages" id="chat-messages"></div>
+                                    <div class="chat-input-area">
+                                        <div class="emoji-picker">
+                                            <button class="emoji-btn" data-emoji="👍">👍</button>
+                                            <button class="emoji-btn" data-emoji="🔥">🔥</button>
+                                            <button class="emoji-btn" data-emoji="❤️">❤️</button>
+                                            <button class="emoji-btn" data-emoji="😂">😂</button>
+                                            <button class="emoji-btn" data-emoji="🎵">🎵</button>
+                                            <button class="emoji-btn" data-emoji="🎉">🎉</button>
+                                        </div>
+                                        <div class="chat-input-row">
+                                            <input type="text" class="chat-input" id="chat-input" placeholder="Type a message...">
+                                            <button class="send-btn" id="send-message-btn">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== PLAYLISTS VIEW ==================== -->
+            <div class="view" id="playlists-view">
+                <div class="playlists-container">
+                    <div class="playlists-header">
+                        <h2 class="section-title">Your Library</h2>
+                        <button class="create-playlist-btn" id="create-playlist-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            New Playlist
+                        </button>
+                    </div>
+                    <div class="playlists-grid" id="playlists-grid">
+                        <div class="playlist-placeholder">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            <p>No playlists yet</p>
+                            <span>Create your first playlist to get started</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist Detail View (Hidden by default) -->
+                <div class="playlist-detail-container" id="playlist-detail-container" style="display: none;">
+                    <div class="playlists-header">
+                        <button class="tab-btn" id="back-to-playlists-btn" style="background:var(--glass2);">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                            Back to Library
+                        </button>
+                        <h2 class="section-title" id="detail-playlist-title" style="margin:0;">Playlist Name</h2>
+                        <button class="create-playlist-btn" id="play-all-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                            Play All
+                        </button>
+                    </div>
+                    <div class="search-results" id="playlist-tracks-list" style="margin-top:20px;">
+                        <!-- Tracks will render here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ==================== BOTTOM PLAYER BAR ==================== -->
+        <div class="player-bar" id="player-bar">
+            <div class="player-bar-progress">
+                <div class="player-bar-progress-fill" id="progress-fill"></div>
+                <input type="range" class="player-bar-progress-input" id="progress-input" min="0" max="100" value="0">
+            </div>
+            <div class="player-bar-content">
+                <div class="player-bar-track">
+                    <img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><rect fill='%231a1a2e' width='80' height='80'/><text y='50' x='25' font-size='30'>🎵</text></svg>" alt="Album Art" class="player-bar-art" id="album-art">
+                    <div class="player-bar-info">
+                        <div class="player-bar-title" id="track-title">No track playing</div>
+                        <div class="player-bar-artist" id="track-artist">Select a song to start</div>
+                    </div>
+                    <button class="ctrl-btn" id="like-btn" title="Save to Liked Songs" style="margin-left:8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    </button>
+                    <button class="ctrl-btn" id="add-to-playlist-btn" title="Add to Playlist">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                </div>
+                <div class="player-bar-controls">
+                    <button class="ctrl-btn" id="prev-btn" title="Previous">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                    </button>
+                    <button class="ctrl-btn ctrl-btn-play" id="play-btn" title="Play">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="play-icon"><path d="M8 5v14l11-7z"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="pause-icon" style="display: none;"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+                    </button>
+                    <button class="ctrl-btn" id="next-btn" title="Next">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                    </button>
+                </div>
+                <div class="player-bar-extra">
+                    <span class="time-display"><span id="current-time">0:00</span> / <span id="duration">0:00</span></span>
+                    <div class="volume-control">
+                        <button class="volume-btn" id="volume-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                        </button>
+                        <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="70">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Visualizer (Floating) -->
+        <div class="floating-visualizer" id="visualizer">
+            <div class="vis-bar"></div><div class="vis-bar"></div><div class="vis-bar"></div>
+            <div class="vis-bar"></div><div class="vis-bar"></div><div class="vis-bar"></div>
+            <div class="vis-bar"></div><div class="vis-bar"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Creating Playlists -->
+    <div class="modal-overlay" id="playlist-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Playlist</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="modal-input" id="playlist-name-input" placeholder="Give your playlist a name...">
+                <button class="modal-btn" id="save-playlist-btn">Create Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Selecting a Playlist -->
+    <div class="modal-overlay" id="select-playlist-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add to Playlist</h3>
+                <button class="modal-close" id="select-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="playlist-selection-list" style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;">
+                    <!-- Playlists rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Audio Element (Hidden) -->
+    <audio id="audio-player" preload="metadata"></audio>
+    
+    <!-- YouTube Player (Hidden but functional - needs real size for audio) -->
+    <div id="youtube-player-container" style="position:fixed; bottom:0; right:0; width:2px; height:2px; opacity:0.01; pointer-events:none; z-index:-1;">
+        <div id="youtube-player"></div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Google Identity Services (Google Sign-In) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- SockJS + STOMP client, for the real-time party-sync WebSocket connection
+         to the Java backend (replaces the old Firebase Realtime Database SDK). -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- App Scripts -->
+    <script src="config.js?v=12"></script>
+    <script src="app.js?v=12"></script>
+    <script src="auth.js?v=12"></script>
+</body>
+</html>
