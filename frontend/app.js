@@ -20,8 +20,15 @@ let state = {
     participantId: null,
     stompClient: null,
     youtubePlayer: null,
-    playerType: 'audio' // 'audio' or 'youtube'
+    playerType: 'audio', // 'audio' or 'youtube'
+    pendingAuthAction: null
 };
+
+// Small reusable state icons - real SVGs instead of emoji, so placeholder
+// states (searching/empty/error) match the rest of the UI's iconography.
+const ICON_SEARCH = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
+const ICON_ALERT = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+const ICON_MUSIC_NOTE = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 
 // ==================== INITIALIZATION ====================
 // initializeApp() is called by auth.js after successful login
@@ -32,22 +39,37 @@ window.onYouTubeIframeAPIReady = function() {
     initYouTubePlayer();
 };
 
-function initializeApp() {
-    // Load saved data
-    loadPlaylists();
+// initializeApp() runs on every login, including re-logging in within the same
+// page session (guest -> Google, or logout -> log back in). The setup*Listeners()
+// calls attach handlers to DOM elements that persist across that whole session
+// (the app shell is only hidden/shown, never recreated), so without this guard
+// every re-login would attach another full set of duplicate listeners and every
+// click would fire its handler once per login cycle.
+let appListenersInitialized = false;
 
-    // Setup event listeners
-    setupNavigationListeners();
-    setupSearchListeners();
-    setupPlayerListeners();
-    setupPartyModeListeners();
-    setupPlaylistListeners();
+// async so callers - specifically auth.js's applyLoggedInUser() - can await
+// state.playlists actually being repopulated before resuming a pending
+// sign-in-required action (e.g. re-opening the add-to-playlist modal right
+// after login). loadPlaylists() does a real network fetch; without this,
+// runPendingAuthAction() reliably raced ahead of it and re-ran the action
+// against the pre-login (empty/stale) playlist list every single time.
+async function initializeApp() {
+    if (!appListenersInitialized) {
+        setupNavigationListeners();
+        setupSearchListeners();
+        setupPlayerListeners();
+        setupPartyModeListeners();
+        setupPlaylistListeners();
+        setupAuthModalListeners();
+        appListenersInitialized = true;
+    }
 
     // YouTube player is initialized by onYouTubeIframeAPIReady once the IFrame
     // API script finishes loading.
     console.log('🎥 YouTube API mode enabled');
-
     console.log('🎵 TuneTogether initialized!');
+
+    await loadPlaylists();
 }
 
 function initYouTubePlayer() {
@@ -464,41 +486,42 @@ async function performSearch() {
     console.log('🎬 Search query:', query);
     
     if (!query) {
-        alert('Please enter a search term');
+        showToast('Enter a search term', 'error');
         return;
     }
-    
+
     const resultsContainer = document.getElementById('search-results');
-    resultsContainer.innerHTML = '<div class="results-placeholder"><div class="placeholder-icon">🔍</div><p>Searching YouTube for "' + query + '"...</p></div>';
-    
+    const safeQuery = escapeHtml(query);
+    resultsContainer.innerHTML = `<div class="results-placeholder"><div class="placeholder-icon">${ICON_SEARCH}</div><p class="placeholder-title">Searching for "${safeQuery}"</p></div>`;
+
     try {
         console.log('🎬 Calling searchYouTube...');
         const results = await searchYouTube(query);
         console.log('🎬 Got results:', results);
         console.log('🎬 Results length:', results ? results.length : 0);
-        
+
         if (!results || results.length === 0) {
-            resultsContainer.innerHTML = '<div class="results-placeholder"><div class="placeholder-icon">😔</div><p>No results found for "' + query + '"<br><small>Try different keywords</small></p></div>';
+            resultsContainer.innerHTML = `<div class="results-placeholder"><div class="placeholder-icon">${ICON_SEARCH}</div><p class="placeholder-title">No results for "${safeQuery}"</p><p class="placeholder-subtitle">Try different keywords</p></div>`;
             return;
         }
-        
+
         console.log('🎬 Displaying results...');
         displaySearchResults(results);
     } catch (error) {
         console.error('❌ Search failed:', error);
-        resultsContainer.innerHTML = '<div class="results-placeholder"><div class="placeholder-icon">❌</div><p>Search failed: ' + error.message + '<br><small>Please check your API key or try again</small></p></div>';
+        resultsContainer.innerHTML = `<div class="results-placeholder"><div class="placeholder-icon">${ICON_ALERT}</div><p class="placeholder-title">Search failed</p><p class="placeholder-subtitle">${escapeHtml(error.message)}</p></div>`;
     }
 }
 
 function displaySearchResults(results) {
     console.log('🎨 displaySearchResults called with', results.length, 'results');
     const resultsContainer = document.getElementById('search-results');
-    
+
     if (results.length === 0) {
-        resultsContainer.innerHTML = '<div class="results-placeholder"><div class="placeholder-icon">🔍</div><p>No results found</p></div>';
+        resultsContainer.innerHTML = `<div class="results-placeholder"><div class="placeholder-icon">${ICON_SEARCH}</div><p class="placeholder-title">No results found</p></div>`;
         return;
     }
-    
+
     console.log('🎨 First result:', results[0]);
     
     // Store latest search results in state to avoid JSON-in-HTML parsing edge cases.
@@ -511,13 +534,13 @@ function displaySearchResults(results) {
 
         return `
         <div class="result-item" data-index="${index}">
-            <img src="${safeAlbumArt}" alt="${safeTitle}" class="result-album-art" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%2250%22 font-size=%2250%22>🎵</text></svg>'">
+            <img src="${safeAlbumArt}" alt="${safeTitle}" class="result-album-art" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%231c1c26%22/%3E%3Cpath d=%22M40 66V30l28-5v32%22 fill=%22none%22 stroke=%22%2352525f%22 stroke-width=%225%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Ccircle cx=%2235%22 cy=%2268%22 r=%229%22 fill=%22%2352525f%22/%3E%3Ccircle cx=%2263%22 cy=%2260%22 r=%229%22 fill=%22%2352525f%22/%3E%3C/svg%3E'">
             <div class="result-info">
                 <div class="result-title">${safeTitle}</div>
                 <div class="result-artist">${safeArtist}</div>
             </div>
             <div class="result-duration">${formatDuration(track.duration)}</div>
-            <button class="add-to-queue-btn" data-index="${index}" title="Add to Queue" style="background:var(--glass2);border:none;color:var(--text);border-radius:6px;cursor:pointer;padding:6px;display:${state.partyRoom ? 'block' : 'none'};margin-left:8px;transition:all 0.2s;">
+            <button class="add-to-queue-btn${state.partyRoom ? '' : ' is-hidden'}" data-index="${index}" title="Add to Queue" aria-label="Add to queue">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
         </div>
@@ -920,8 +943,8 @@ async function createPartyRoom() {
         state.stompClient = connectPartySocket(roomCode, participantId);
         startPartyPositionTicker();
 
-        addChatMessage('System', `🎉 Party room created! Code: ${roomCode}`);
-        addChatMessage('System', '💡 Share this code with friends to sync music together!');
+        addChatMessage('System', `Party room created — code ${roomCode}`);
+        addChatMessage('System', 'Share this code with friends so they can listen along.');
     } catch (error) {
         console.error('❌ Failed to create party room:', error);
         showToast('Could not create party room: ' + error.message, 'error');
@@ -934,7 +957,7 @@ async function joinPartyRoom() {
     const roomCode = roomCodeInput.value.trim().toUpperCase();
 
     if (!roomCode) {
-        alert('Please enter a room code');
+        showToast('Enter a room code', 'error');
         return;
     }
 
@@ -946,7 +969,7 @@ async function joinPartyRoom() {
         });
 
         if (response.status === 404) {
-            alert('❌ Room not found. Please check the code and try again.');
+            showToast('Room not found. Check the code and try again.', 'error');
             return;
         }
         if (!response.ok) {
@@ -969,7 +992,7 @@ async function joinPartyRoom() {
         state.stompClient = connectPartySocket(roomCode, participantId);
         startPartyPositionTicker();
 
-        addChatMessage('System', '✅ Joined the party!');
+        addChatMessage('System', 'You joined the party.');
         console.log('✅ Joined room:', roomCode);
     } catch (error) {
         console.error('❌ Failed to join party room:', error);
@@ -1028,9 +1051,9 @@ function copyRoomCode() {
     const roomCode = document.getElementById('room-code').textContent;
     if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(roomCode).then(() => {
-            alert('Room code copied to clipboard!');
+            showToast('Room code copied', 'success');
         }).catch(() => {
-            alert(`Room code: ${roomCode}`);
+            showToast(`Room code: ${roomCode}`, 'error');
         });
         return;
     }
@@ -1042,9 +1065,9 @@ function copyRoomCode() {
     tempInput.select();
     try {
         document.execCommand('copy');
-        alert('Room code copied to clipboard!');
+        showToast('Room code copied', 'success');
     } catch (error) {
-        alert(`Room code: ${roomCode}`);
+        showToast(`Room code: ${roomCode}`, 'error');
     } finally {
         document.body.removeChild(tempInput);
     }
@@ -1136,7 +1159,7 @@ function syncPartyPlayback(action = 'TRACK_CHANGE') {
 
 function addToPartyQueue(track) {
     if (!state.partyRoom || !state.stompClient) {
-        alert('You must be in a party to add to the queue!');
+        showToast('Join a party to add songs to the queue', 'error');
         return;
     }
 
@@ -1164,11 +1187,11 @@ function renderPartyQueue() {
         const safeAlbumArt = escapeHtml(track.albumArt || '');
         
         return `
-            <div class="participant-item">
-                <img src="${safeAlbumArt}" class="participant-avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%2250%22 font-size=%2250%22>🎵</text></svg>'" style="object-fit:cover; border-radius:4px;">
-                <div class="participant-name">
-                    <div style="font-size:0.8rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeTitle}</div>
-                    <div style="font-size:0.7rem; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${safeArtist}</div>
+            <div class="queue-item">
+                <img src="${safeAlbumArt}" class="queue-item-art" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%231c1c26%22/%3E%3Cpath d=%22M40 66V30l28-5v32%22 fill=%22none%22 stroke=%22%2352525f%22 stroke-width=%225%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Ccircle cx=%2235%22 cy=%2268%22 r=%229%22 fill=%22%2352525f%22/%3E%3Ccircle cx=%2263%22 cy=%2260%22 r=%229%22 fill=%22%2352525f%22/%3E%3C/svg%3E'">
+                <div class="queue-item-info">
+                    <div class="queue-item-title">${safeTitle}</div>
+                    <div class="queue-item-artist">${safeArtist}</div>
                 </div>
             </div>
         `;
@@ -1255,6 +1278,10 @@ function setupPlaylistListeners() {
     const modal = document.getElementById('playlist-modal');
     
     createPlaylistBtn.addEventListener('click', () => {
+        if (typeof AUTH === 'undefined' || !AUTH.user || AUTH.user.isGuest) {
+            requireSignIn('Sign in with Google to create playlists.', () => modal.classList.add('active'));
+            return;
+        }
         modal.classList.add('active');
     });
     
@@ -1289,6 +1316,52 @@ function setupPlaylistListeners() {
     }
 }
 
+/**
+ * Every library action (like, add-to-playlist, create-playlist) is blocked for
+ * guests. Instead of just a "sign in to do this" toast that leaves the user to
+ * find the login button themselves, this opens a modal with the action's own
+ * Google sign-in button. If they sign in successfully, pendingAction runs
+ * automatically - e.g. clicking "Save to playlist" while signed out and then
+ * signing in actually saves the track, instead of silently doing nothing.
+ */
+function requireSignIn(message, pendingAction) {
+    state.pendingAuthAction = pendingAction;
+    document.getElementById('auth-required-message').textContent = message;
+    document.getElementById('auth-required-modal').classList.add('active');
+}
+
+function setupAuthModalListeners() {
+    const modal = document.getElementById('auth-required-modal');
+    const closeBtn = document.getElementById('auth-required-close');
+    const cancelBtn = document.getElementById('auth-required-cancel');
+    const googleBtn = document.getElementById('auth-required-google-btn');
+
+    const dismiss = () => {
+        modal.classList.remove('active');
+        state.pendingAuthAction = null;
+    };
+
+    closeBtn.addEventListener('click', dismiss);
+    cancelBtn.addEventListener('click', dismiss);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) dismiss();
+    });
+    googleBtn.addEventListener('click', () => {
+        // Keep state.pendingAuthAction set - runPendingAuthAction() (called by
+        // auth.js after a successful, non-guest login) is what actually runs it.
+        modal.classList.remove('active');
+        AUTH.googleLogin();
+    });
+}
+
+/** Called by auth.js right after a successful Google sign-in. */
+function runPendingAuthAction() {
+    if (!state.pendingAuthAction) return;
+    const action = state.pendingAuthAction;
+    state.pendingAuthAction = null;
+    action();
+}
+
 async function loadPlaylists() {
     if (typeof AUTH !== 'undefined' && AUTH.user && !AUTH.user.isGuest) {
         try {
@@ -1305,12 +1378,17 @@ async function loadPlaylists() {
         const playlistsGrid = document.getElementById('playlists-grid');
         if (playlistsGrid) {
             playlistsGrid.innerHTML = `
-                <div class="playlist-placeholder" style="grid-column: 1/-1;">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                    <p>Sign in with Google</p>
-                    <span>You must be logged in with Google to create and save playlists to your library.</span>
+                <div class="playlist-placeholder playlist-placeholder-wide">
+                    <div class="placeholder-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+                    <p class="placeholder-title">Sign in to build your library</p>
+                    <p class="placeholder-subtitle">Google sign-in lets you save playlists and liked songs across devices.</p>
+                    <button class="btn-secondary" id="library-signin-btn" type="button">Continue with Google</button>
                 </div>
             `;
+            const librarySignInBtn = document.getElementById('library-signin-btn');
+            if (librarySignInBtn) {
+                librarySignInBtn.addEventListener('click', () => AUTH.googleLogin());
+            }
         }
     }
 }
@@ -1326,7 +1404,7 @@ async function createPlaylist() {
     const name = nameInput.value.trim();
 
     if (!name) {
-        alert('Please enter a playlist name');
+        showToast('Enter a playlist name', 'error');
         return;
     }
 
@@ -1353,13 +1431,13 @@ function displayPlaylists() {
     const playlistsGrid = document.getElementById('playlists-grid');
     
     if (state.playlists.length === 0) {
-        playlistsGrid.innerHTML = '<div class="playlist-placeholder"><div class="placeholder-icon">🎵</div><p>No playlists yet. Create your first one!</p></div>';
+        playlistsGrid.innerHTML = `<div class="playlist-placeholder"><div class="placeholder-icon">${ICON_MUSIC_NOTE}</div><p class="placeholder-title">No playlists yet</p><p class="placeholder-subtitle">Create your first one to get started</p></div>`;
         return;
     }
-    
+
     playlistsGrid.innerHTML = state.playlists.map(playlist => `
         <div class="playlist-card" data-id="${playlist.id}">
-            <div class="playlist-cover">🎵</div>
+            <div class="playlist-cover">${ICON_MUSIC_NOTE}</div>
             <div class="playlist-name">${escapeHtml(playlist.name || 'Untitled Playlist')}</div>
             <div class="playlist-count">${playlist.tracks.length} songs</div>
         </div>
@@ -1397,7 +1475,7 @@ function openPlaylist(playlistId) {
 
             return `
             <div class="result-item" data-index="${index}">
-                <img src="${safeAlbumArt}" class="result-album-art" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%2250%22 font-size=%2250%22>🎵</text></svg>'">
+                <img src="${safeAlbumArt}" class="result-album-art" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%231c1c26%22/%3E%3Cpath d=%22M40 66V30l28-5v32%22 fill=%22none%22 stroke=%22%2352525f%22 stroke-width=%225%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Ccircle cx=%2235%22 cy=%2268%22 r=%229%22 fill=%22%2352525f%22/%3E%3Ccircle cx=%2263%22 cy=%2260%22 r=%229%22 fill=%22%2352525f%22/%3E%3C/svg%3E'">
                 <div class="result-info">
                     <div class="result-title">${safeTitle}</div>
                     <div class="result-artist">${safeArtist}</div>
@@ -1443,7 +1521,7 @@ async function handleLikeTrack() {
     }
 
     if (typeof AUTH === 'undefined' || !AUTH.user || AUTH.user.isGuest) {
-        showToast('Sign in with Google to use Liked Songs', 'error');
+        requireSignIn('Sign in with Google to save songs to Liked Songs.', () => handleLikeTrack());
         return;
     }
 
@@ -1457,7 +1535,7 @@ async function handleLikeTrack() {
         const { liked } = await response.json();
 
         await loadPlaylists();
-        showToast(liked ? 'Added to Liked Songs ❤️' : 'Removed from Liked Songs 💔', 'success');
+        showToast(liked ? 'Added to Liked Songs' : 'Removed from Liked Songs', 'success');
         updateLikeButtonState();
     } catch (e) {
         console.error('Failed to toggle Liked Songs:', e);
@@ -1494,33 +1572,29 @@ function openSelectPlaylistModal() {
     }
     
     if (typeof AUTH === 'undefined' || !AUTH.user || AUTH.user.isGuest) {
-        showToast('Sign in with Google to add to playlists', 'error');
+        requireSignIn('Sign in with Google to save songs to your playlists.', () => openSelectPlaylistModal());
         return;
     }
-    
+
     const modal = document.getElementById('select-playlist-modal');
     const list = document.getElementById('playlist-selection-list');
     
     if (state.playlists.length === 0) {
-        list.innerHTML = '<p style="color:var(--text3);text-align:center;">No playlists available. Create one first!</p>';
+        list.innerHTML = '<p class="empty-hint">No playlists yet. Create one first.</p>';
     } else {
         list.innerHTML = state.playlists.map(p => `
-            <button class="playlist-select-item" data-id="${p.id}" style="padding:12px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; color:var(--text); text-align:left; cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+            <button class="playlist-select-item" data-id="${p.id}">
                 <span>${escapeHtml(p.name)}</span>
-                <span style="font-size:0.8rem; color:var(--text2);">${p.tracks.length} songs</span>
+                <span class="playlist-select-item-count">${p.tracks.length} songs</span>
             </button>
         `).join('');
-        
+
         list.querySelectorAll('.playlist-select-item').forEach(btn => {
             btn.addEventListener('click', () => {
                 const playlistId = parseInt(btn.dataset.id, 10);
                 addTrackToPlaylist(playlistId, state.currentTrack);
                 modal.classList.remove('active');
             });
-            
-            // Hover effect
-            btn.addEventListener('mouseover', () => btn.style.borderColor = 'var(--accent)');
-            btn.addEventListener('mouseout', () => btn.style.borderColor = 'var(--border)');
         });
     }
     

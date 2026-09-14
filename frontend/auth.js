@@ -56,6 +56,7 @@ const AUTH = {
     googleLogin() {
         if (!CONFIG.GOOGLE_CLIENT_ID) {
             this.showToast('Google Sign-In is not configured. Using guest mode.', 'error');
+            this.clearPendingAuthAction();
             this.guestLogin();
             return;
         }
@@ -64,14 +65,35 @@ const AUTH = {
         }
         if (typeof google === 'undefined' || !google.accounts) {
             this.showToast('Google Sign-In failed to load. Using guest mode.', 'error');
+            this.clearPendingAuthAction();
             this.guestLogin();
             return;
         }
         google.accounts.id.prompt((notification) => {
             if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                // This is the routine case, not an edge case - browsers blocking
+                // third-party cookies and Google's own cooldown after a prior
+                // dismissal both suppress One Tap silently. No login happens
+                // here, so any pending sign-in-required action can't safely
+                // carry forward to whatever the user is doing when they
+                // eventually do sign in - clear it now, same as an explicit
+                // "Not now" in the modal.
                 this.showToast('Google Sign-In was dismissed.', 'error');
+                this.clearPendingAuthAction();
             }
         });
+    },
+
+    // A "sign in required" prompt (requireSignIn() in app.js) only makes sense
+    // to resume once the user actually ends up signed in with a real account.
+    // If Google Sign-In isn't configured/available and we fall back to a guest
+    // session instead, that pending action must not silently survive to fire
+    // on some unrelated future real login - clear it the moment we know this
+    // attempt is resolving as a guest, not a Google sign-in.
+    clearPendingAuthAction() {
+        if (typeof state !== 'undefined') {
+            state.pendingAuthAction = null;
+        }
     },
 
     async handleGoogleCredential(response) {
@@ -94,7 +116,7 @@ const AUTH = {
         }
     },
 
-    applyAuthResponse(authResponse, showWelcomeToast) {
+    async applyAuthResponse(authResponse, showWelcomeToast) {
         this.accessToken = authResponse.accessToken;
         this.refreshToken = authResponse.refreshToken || null;
         localStorage.setItem('tt_access_token', this.accessToken);
@@ -104,10 +126,10 @@ const AUTH = {
             localStorage.removeItem('tt_refresh_token');
         }
         localStorage.setItem('tt_user', JSON.stringify(authResponse.user));
-        this.applyLoggedInUser(authResponse.user, showWelcomeToast);
+        await this.applyLoggedInUser(authResponse.user, showWelcomeToast);
     },
 
-    applyLoggedInUser(user, showWelcomeToast) {
+    async applyLoggedInUser(user, showWelcomeToast) {
         this.user = { name: user.name, email: user.email, photo: user.photo, uid: user.uid, isGuest: user.isGuest };
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app-wrapper').style.display = 'flex';
@@ -117,13 +139,28 @@ const AUTH = {
             avatar.src = this.user.photo;
             avatar.style.display = 'block';
         } else {
-            avatar.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="%236c5ce7" width="40" height="40" rx="20"/><text x="50%" y="55%" text-anchor="middle" fill="white" font-size="16" dominant-baseline="middle">' + (this.user.name.charAt(0).toUpperCase()) + '</text></svg>';
+            avatar.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect fill="%235b5bd6" width="40" height="40" rx="20"/><text x="50%" y="55%" text-anchor="middle" fill="white" font-size="16" font-family="sans-serif" dominant-baseline="middle">' + (this.user.name.charAt(0).toUpperCase()) + '</text></svg>';
             avatar.style.display = 'block';
         }
         if (showWelcomeToast) {
             this.showToast('Welcome, ' + this.user.name + '!', 'success');
         }
-        if (typeof initializeApp === 'function') initializeApp();
+
+        // Awaited: initializeApp() triggers loadPlaylists(), a real network
+        // fetch. Without waiting for it, runPendingAuthAction() below would
+        // reliably fire before state.playlists was repopulated post-login,
+        // re-running e.g. openSelectPlaylistModal() against stale/empty data
+        // every time - not an occasional race, since a fetch can never
+        // resolve synchronously before this line runs.
+        if (typeof initializeApp === 'function') await initializeApp();
+
+        // If the user got here by signing in from a "sign in required" prompt
+        // (e.g. clicking "Save to playlist" while signed out), finish what they
+        // were actually trying to do - guests never have one pending, since
+        // requireSignIn() is only ever reached for guest-blocked actions.
+        if (!user.isGuest && typeof runPendingAuthAction === 'function') {
+            runPendingAuthAction();
+        }
     },
 
     async logout() {
@@ -135,6 +172,7 @@ const AUTH = {
             }
         }
         this.clearStoredSession();
+        this.clearPendingAuthAction();
         this.user = null;
         this.accessToken = null;
         this.refreshToken = null;
